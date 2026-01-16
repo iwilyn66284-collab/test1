@@ -1,28 +1,27 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Always use process.env.API_KEY directly for client initialization.
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
-
+/**
+ * 方案架构顶层设计
+ */
 export const analyzeTenderStructure = async (text: string, totalWords: number) => {
-  const ai = getAI();
-  // 根据字数动态建议章节数，更灵活，不再死守 10 章
-  const suggestedMin = Math.max(6, Math.floor(totalWords / 2000));
-  const suggestedMax = Math.min(15, Math.ceil(totalWords / 1000));
-
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `
-      你是一个资深的投标专家。请根据提供的招标书内容，规划一份总字数目标为 ${totalWords} 字的投标方案结构。
-      
-      要求：
-      1. 规划约 ${suggestedMin}-${suggestedMax} 个章节，确保结构能够覆盖招标书所有核心要求。
-      2. 为每个章节分配目标字数，且所有章节的 targetWordCount 总和必须【完全等于】 ${totalWords}。
-      3. 每个章节必须有简要的“扩写指南”，指导后续如何通过技术细节、案例、流程图描述来填充字数。
-      4. 输出 JSON 格式。
+      # 角色：资深招标顾问
+      # 任务：基于提供的招标需求书，规划一份逻辑严密、满足商务和技术评分标准的投标方案架构。
 
-      招标书参考文本：
-      ${text.substring(0, 8000)}
+      ## 编制原则：
+      1. **架构稳定性**：章节数量控制在 10 章左右（8-12章）。
+      2. **科学分配**：基于总字数 ${totalWords}，主章节（技术方案、施工组织等）需分配 60% 以上字数。
+      3. **合规术语**：标题需符合行业标准（如：编制依据、质量保证措施、应急响应方案等）。
+
+      ## 响应要求：
+      必须以纯 JSON 格式返回。
+
+      ## 招标原始文档：
+      ${text.substring(0, 15000)}
     `,
     config: {
       responseMimeType: "application/json",
@@ -48,40 +47,46 @@ export const analyzeTenderStructure = async (text: string, totalWords: number) =
     }
   });
 
-  return JSON.parse(response.text);
+  try {
+    const textOutput = response.text || '';
+    return JSON.parse(textOutput.replace(/```json|```/g, '').trim());
+  } catch (e) {
+    console.error("解析大纲失败:", e);
+    throw new Error("架构规划解析异常，请重试。");
+  }
 };
 
+/**
+ * 章节内容深度扩写引擎
+ */
 export const generateSectionContent = async (
   tenderContext: string,
   sectionTitle: string,
   targetCount: number,
   description: string
 ) => {
-  const ai = getAI();
-  
-  // 核心扩写指令：要求 AI 采用详尽叙述
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `
-      你正在编写投标书的“${sectionTitle}”章节。
-      【字数铁律】：该章节必须输出约 ${targetCount} 字。字数不足会导致失分。
-      
-      【写作任务】：
-      1. 任务背景：${description}
-      2. 扩写技巧：如果字数要求较多，请通过“多维论证”来扩充内容。例如：不仅仅写“我们会保证质量”，而是详细描述“原材料入库检验（15个指标）、生产过程巡检（每2小时一次）、成品出厂抽检（AQL标准）”等具体操作。
-      3. 结构化：每 300-500 字建议一个小标题，确保长文本易读。
-      4. 包含具体的数据、标准的管理表格描述（文字叙述）、详尽的职责分工和时间节点规划。
-      
-      【关联招标书】：
-      ${tenderContext.substring(0, 4000)}
-      
-      请直接输出正文，不要包含任何自我介绍或解释。
-    `,
-    config: {
-      temperature: 0.85,
-      thinkingConfig: { thinkingBudget: 15000 }
-    }
+      # 角色：资深标书编制专家
+      # 任务：为投标书章节《${sectionTitle}》进行深度内容扩写。
+
+      ## 核心要求：
+      - **字数对标**：生成内容必须不少于 ${targetCount} 字。
+      - **条款响应**：深度结合下方招标参考资料，进行针对性响应，体现方案的唯一性和匹配度。
+      - **专业排版**：强制使用公文分级：一、 (一) 1. (1)。
+      - **严禁虚假空话**：增加具体的工作标准、管理流程、质量控制点及具体参数描述。
+
+      ## 章节编制导向：
+      ${description}
+
+      ## 招标背景资料支持：
+      ${tenderContext.substring(0, 6000)}
+
+      请直接输出正文内容。
+    `
   });
 
-  return response.text;
+  return response.text || '内容生成异常，请重新尝试。';
 };
