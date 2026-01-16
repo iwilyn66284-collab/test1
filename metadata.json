@@ -1,0 +1,5 @@
+{
+  "name": "智能投标书生成系统 (SmartBid AI)",
+  "description": "基于 Gemini AI 的专业投标书自动生成平台，支持标书解析、结构化扩写及精确字数控制。",
+  "requestFramePermissions": []
+}
